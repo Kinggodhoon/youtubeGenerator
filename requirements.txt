@@ -1,0 +1,7 @@
+openai
+moviepy
+glob
+urllib
+json
+PIL
+python-dotenv
