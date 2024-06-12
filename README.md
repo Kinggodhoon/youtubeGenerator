@@ -1,14 +1,14 @@
 # Youtube shorts video generator
 generating video with AI
 
-## v1 TTS and Image
+## v1 TTS and Image (generator.py)
 [Used resources]
 --
 - Image and scripts: ChatGPT 4, DALLE
 - Narrator voice: Naver CLOVA Voice
 - Generating video file: moviepy
 
-## v2 Music and Image
+## v2 Music and Image (musicGenerate.py)
 [Used resources]
 --
 - Video contents and lyrics: ChatGPT 4o
