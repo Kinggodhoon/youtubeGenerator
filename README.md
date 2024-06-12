@@ -14,3 +14,5 @@ generating video with AI
 - Video contents and lyrics: ChatGPT 4o
 - Music: Suno AI
 - Generating video file: moviepy
+- **If you want to run it, you need to modify suno-api's code.
+Check my PR on [here]: (https://github.com/imyizhang/Suno-API/pull/5)**
