@@ -54,21 +54,51 @@ regionDatas = {
 def getVideoContent():
   print('Generating Content and Script')
 
-  contentRequestList = [{
-    'role': 'user',
-    'content': "오늘 한국 광역시들의 날씨 찾아서 노래 가사로 만들어줘.\n 가사는 1분 미만의 Verse1-hook1으로 부탁하고 날씨 관련 정보는 모두 Verse1에 넣어줘.\n 가사중 기온은 한자 음 표기로 표기해줘 예를들어 25라면 이십오도 처럼.\n 날씨는 sunny, snowy, rainy, cloudy 중에서만 부탁해.\n output example: \"{\"weather\":{\"seoul\":{\"weather\":\"cloudy\",\"temperature\":25},\"daejeon\":{\"weather\":\"sunny\",\"temperature\":25},\"daegu\":{\"weather\":\"rainy\",\"temperature\":25},\"busan\":{\"weather\":\"cloudy\",\"temperature\":25},\"incheon\":{\"weather\":\"cloudy\",\"temperature\":25},\"gwangju\":{\"weather\":\"cloudy\",\"temperature\":25}},\"lyrics\":\"가사 가사\"}\" \n 결과를 보내기 전에 기온과 데이터 형식이 확실한지 확인해줘 데이터는 항상 stringify된 JSON 이여야해.",
-  }]
-  contentRes = openai.ChatCompletion.create(
-      model='gpt-4o',
-      messages=contentRequestList
-  )
+  for i in range(0, 30):
+    try: 
+      contentRequestList = [{
+        'role': 'user',
+        'content': """
+          [step 1]
+          1. 주어진 링크를 통해서 날씨 데이터를 가져와줘.
+            최저, 최고기온은 'Forecast' 항목이고, 강수확률은 'Probability of Precipitation' 항목이야.
+            seoul: https://www.timeanddate.com/weather/south-korea/seoul
+            incheon: https://www.timeanddate.com/weather/south-korea/incheon
+            daegu: https://www.timeanddate.com/weather/south-korea/daegu
+            daejun: https://www.timeanddate.com/weather/south-korea/daejeon
+            gwangju: https://www.timeanddate.com/weather/south-korea/gwangju
+            busan: https://www.timeanddate.com/weather/south-korea/busan
+          2. 가져온 자료를 기반으로만 오늘 한국 광역시들의 날씨와 그 데이터를 기반으로 노래 가사를 만들어줘
+          3. 최저, 최고 기온과 강수확률, 날씨를 검색해야해
+          4. 날씨는 sunny, snowy, rainy, cloudy 중에서만 부탁해
 
-  contentResponse = contentRes.choices[0].message.content
+          [step 2]
+          1. 가사는 1분 미만의 길이로 부탁하고 날씨 관련 정보는 앞쪽으로 오며 뒤쪽에는 하이라이트가 나오게 해줘.
+          2. 가사에 기온은 포함하지말고 날씨 정보만 부탁해, 예를 들어 서울은 맑지만 비가올수있어 같이.
 
-  print(contentResponse)
-  content = json.loads(contentResponse)
+          [Output example]
+          '{"weather":{"seoul":{"weather":"cloudy","lowTemperature":25,"highTemperature":31,"precipitationProbability":45},"daejeon":{"weather":"sunny","lowTemperature":25,"highTemperature":31,"precipitationProbability":20},"daegu":{"weather":"rainy","lowTemperature":25,"highTemperature":31,"precipitationProbability":90},"busan":{"weather":"cloudy","lowTemperature":27,"highTemperature":33,"precipitationProbability":50},"incheon":{"weather":"cloudy","lowTemperature":25,"highTemperature":31,"precipitationProbability":45},"gwangju":{"weather":"cloudy","lowTemperature":25,"highTemperature":31,"precipitationProbability":45}},"lyrics":"1분 미만 가사"}'
 
-  return content
+          output example: 
+          잡설없이 데이터만 보내줘 데이터는 항상 코드블럭이 없는 순수한 stringify된 JSON 이여야해.
+          """,
+      }]
+      contentRes = openai.ChatCompletion.create(
+          model='gpt-4o',
+          messages=contentRequestList
+      )
+
+      contentResponse = contentRes.choices[0].message.content
+
+      content = json.loads(contentResponse)
+
+      print(content)
+
+      return content
+    except:
+      print('JSON parse exception, Re running..')
+
+  raise Exception('ChatGPT something has wrong')
 
 # Generate Suno AI music
 def GenerateMusicFile(content):
@@ -112,6 +142,7 @@ def generateShortsVideo(content, musicId):
   print('Get content image sources')
   iconImageClipList = []
   font = ImageFont.truetype(font='./assets/font.ttf', size=30)
+  rainyFont = ImageFont.truetype(font='./assets/font.ttf', size=17)
   for region in regionDatas:
     # Merge icon images
     iconFrame = Image.open('assets/icons/icon_frame.png')
@@ -119,6 +150,7 @@ def generateShortsVideo(content, musicId):
     mergedIcon = Image.new('RGBA', (w, h), color=(0,0,0,0))
 
     weatherIcon = Image.open('./assets/icons/{}.png'.format(content['weather'][region]['weather']))
+    rainyIcon = Image.open('./assets/icons/rainy.png').resize((50, 50))
 
     mergedIcon.paste(iconFrame, (0, 0), iconFrame)
     mergedIcon.paste(weatherIcon, (5, math.floor(h / 4.5)), weatherIcon)
@@ -126,7 +158,17 @@ def generateShortsVideo(content, musicId):
     # Draw region and temperature
     draw = ImageDraw.Draw(mergedIcon)
     draw.text(xy=(40, math.floor(h / 10)), text=regionDatas[region]['korean'], fill=(255, 255, 255), font=font)
-    draw.text(xy=(50, math.floor(h / 1.25)), text=str(content['weather'][region]['temperature']), fill=(255, 255, 255), font=font)
+    draw.text(xy=(22, math.floor(h / 1.25)),
+              text=str(f'{content['weather'][region]['lowTemperature']} / {content['weather'][region]['highTemperature']}'),
+              fill=(255, 255, 255), font=font)
+    
+    # Draw precipitation probability
+    mergedIcon.paste(rainyIcon, (90, 0), rainyIcon)
+    draw.text(xy=(98, 10),
+              text=str(f'{content['weather'][region]['precipitationProbability']}%'),
+              fill=(0, 120, 255), font=rainyFont)
+
+    mergedIcon.save(f'./temp/image/{region}.png')
 
     # Make Icon Clip
     regionX = regionDatas[region]['x']
@@ -134,10 +176,12 @@ def generateShortsVideo(content, musicId):
     iconImageClip = ImageClip(numpy.array(mergedIcon)).set_position((regionX, regionY)).set_duration(totalDuration)
     iconImageClipList.append(iconImageClip)
 
+
   # Make Subtitle Text Clip
   print('Make subtitle text clip')
   now = dt.datetime.now()
-  textClip = TextClip(f'대한민국 {now.month}월 {now.day}일', color='white', font='assets/font.ttf', fontsize=54)
+  todaySubtitle = f'대한민국 {now.month}월 {now.day}일'.encode('utf8')
+  textClip = TextClip(todaySubtitle, color='white', font='assets/font.ttf', fontsize=54)
   textClip = textClip.set_duration(totalDuration).set_position((575, 80))
 
   # Combine Clips
